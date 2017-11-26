@@ -1,5 +1,1 @@
-<<<<<<< HEAD
-{"http://4te.me":200,"https://cloud.kazin.ru":200,"https://kazin.ru":200}
-=======
-{"bitcoin":0.05086186,"dash":0.12556303,"ethereum":0.1,"monero":0.22858}
->>>>>>> new_features
+{"coins":{"Chernov":{"bitcoin":0.0135117},"Pupkin":{"ethereum":20,"monero":20},"YKazin":{"bitcoin":0.05086186,"dash":0.12556303,"ethereum":0.1,"monero":0.22858}}}

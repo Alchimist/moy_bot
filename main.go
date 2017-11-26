@@ -4,19 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-<<<<<<< HEAD
-//	"github.com/Syfaro/telegram-bot-api"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"time"
-	"os"
-	"crypto/tls"
-	"gopkg.in/telegram-bot-api.v4"
-//	"strconv"
-//	"strings"
-//	"encoding/xml"
-=======
 	"io/ioutil"
 	"log"
 	"time"
@@ -25,49 +12,42 @@ import (
 	coinApi "github.com/miguelmota/go-coinmarketcap"
 	"strings"
 	"strconv"
->>>>>>> new_features
+	"github.com/Jeffail/gabs"
 )
 
+
+
+// не сохраняет конфигурацию в файле, только читает из config_bot.json
+// не создаёт под нового пользователя его структуру в файле config_new.json
 //
-//Site list map  "URL" - status
-//Site status
-//0 - never checked
-//1 - timeout
-//200 - ok
-//other statuses - crit
+//
+//
+//
+//
+
+type Bot_config struct {
+	TelegramBotToken	string 	`json:"TelegramBotToken"`
+	ChatID				int64 	`json:"chatID"`
+	Timer				int 	`json:"timer"`
+}
+
+// тип для извлечения списка коинов по юзерам
+type interface_map_type map[string]interface{}
 
 var (
-<<<<<<< HEAD
-	SiteList   map[string]int
-=======
-	SiteList   map[string]float64
->>>>>>> new_features
-	botToken   map[string]interface{}
-	chatID     int64
-	telegramBotToken string
-	configFile string
-	configFileBot string
-<<<<<<< HEAD
-	HelpMsg    = "Это простой мониторинг доступности сайтов. Он обходит сайты в списке и ждет что он ответит 200, если возвращается не 200 или ошибки подключения, то бот пришлет уведомления в групповой чат\n" +
-		"Список доступных комманд:\n" +
-		"/site_list - покажет список сайтов в мониторинге и их статусы (про статусы ниже)\n" +
-		"/site_add [url] - добавит url в список мониторинга\n" +
-		"/site_del [url] - удалит url из списка мониторинга\n" +
-		"/help - отобразить это сообщение\n" +
-		"\n" +
-		"У сайтов может быть несколько статусов:\n" +
-		"0 - никогда не проверялся (ждем проверки)\n" +
-		"1 - ошибка подключения \n" +
-		"200 - ОК-статус" +
-		"все остальные http-коды считаются некорректными"
-)
-
-func init() {
-	SiteList = make(map[string]int)
-
-=======
-	timer int
-	alarm string
+	interface_data 		interface_map_type
+	bot_config			Bot_config
+	CoinList   			map[string]float64
+	botToken   			map[string]interface{}
+	chatID     			int64
+	telegramBotToken 	string
+	configFile 			string
+	configFile_new 		string
+	configFileBot 		string
+	jsonParsed 			*gabs.Container
+	jsonString 			[]byte
+	timer 				int
+	alarm 				string
 	HelpMsg    = "Это простой мониторинг для подсчёта баланса криптовалюты. Он мониторит валюту по списку и выводит сумму в рублях и общий баланс\n" +
 		"Список доступных комманд:\n" +
 		"/coin_list - покажет список валюты в мониторинге и их курс \n" +
@@ -78,10 +58,20 @@ func init() {
 		"\n"
 )
 
+func LoadConfiguration(file string) Bot_config {
+	var config Bot_config
+	configFile, err := os.Open(file)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	jsonParser := json.NewDecoder(configFile)
+	jsonParser.Decode(&config)
+	return config
+}
+
 func init() {
-	SiteList = make(map[string]float64)
-	timer = 60 // время по умолчанию
->>>>>>> new_features
+	CoinList = make(map[string]float64)
+	timer = 1 // время по умолчанию
 //	file, _ := os.Open("config_bot.json")
 //	decoder := json.NewDecoder(file)
 //	configuration := Config_bot{}
@@ -91,45 +81,86 @@ func init() {
 //	}
 //	fmt.Println(configuration.TelegramBotToken)
 
-	flag.StringVar(&configFileBot, "config_bot", "config_bot.json", "config file bot")
-	flag.StringVar(&configFile, "config", "config.json", "config file")
+//	flag.StringVar(&configFileBot, "config_bot", "config_bot.json", "config file bot")
+//	flag.StringVar(&configFile, "config", "config.json", "config file")
+	flag.StringVar(&configFile, "config_new", "config_new.json", "config file")
 //	flag.StringVar(&telegramBotToken, "telegrambottoken", "", "Telegram Bot Token")
 //	flag.Int64Var(&chatID, "chatid", 0, "chatId to send messages")
 
 	flag.Parse()
+// парсим файл с валютами и пользователями config_new.json
+	jsonString, _ = ioutil.ReadFile(configFile)
+	jsonParsed, _ = gabs.ParseJSON([]byte(jsonString))
+
+	// загрузка нового конфига config_new.json
+	bot_config = LoadConfiguration("config_bot.json")
 
 	load_list()
 
-	telegramBotToken = botToken["TelegramBotToken"].(string) // "400069657:AAHldU0VZ7ZSfTSU55jnYtJpVnSdvgAqiyM"//
+	log.Printf("telegramBotToken: %s\n", bot_config.TelegramBotToken)
+	log.Printf("ChatID: %d\n", bot_config.ChatID)
+//	log.Printf("config: %s\n", bot_config)
+//	telegramBotToken = botToken["TelegramBotToken"].(string) // "400069657:AAHldU0VZ7ZSfTSU55jnYtJpVnSdvgAqiyM"//
+
+	telegramBotToken = bot_config.TelegramBotToken
+
 	if telegramBotToken == "" {
-		log.Print("-telegrambottoken is required")
+		log.Print("TelegramBotToken is required")
 		os.Exit(1)
 	}
 
+//	chatID = int64(botToken["chatID"].(float64))
+	chatID = bot_config.ChatID
 //	chatID = -263587509
-	chatID = int64(botToken["chatID"].(float64))
 	if chatID == 0 {
-		log.Print("-chatid is required")
+		log.Print("chatID is required")
 		os.Exit(1)
+	}
+
+	timer = bot_config.Timer
+	if timer == 0 {
+		log.Print("таймер не установлен, выставляется по умолчанию")
+		timer = 1
 	}
 
 }
 
 func send_notifications(bot *tgbotapi.BotAPI) {
-	for site, status := range SiteList {
+	for site, status := range CoinList {
 		if status != 200 {
-<<<<<<< HEAD
-			alarm := fmt.Sprintf("CRIT - %s ; status: %v", site, status)
-=======
 			alarm := fmt.Sprintf("CRIT - %s ; status: %.0f", site, status)
->>>>>>> new_features
 			bot.Send(tgbotapi.NewMessage(chatID, alarm))
 		}
 	}
 }
 
 func save_list() {
-	data, err := json.Marshal(SiteList)
+
+//	configFile, err := os.fi
+
+// сохраняем конфиг с коинами config_new.json
+	/*
+	j, err := json.Marshal(interface_data)
+	err = ioutil.WriteFile(configFile_new, j, 0644)
+	if err != nil {
+		panic(err)
+	}
+	*/
+
+	err1 := ioutil.WriteFile(configFile, []byte(jsonParsed.String()), 0644)
+	if err1 != nil {
+		log.Println("Config file seve error: %s", err1)
+	}
+	/*
+
+	data, err := json.Marshal(CoinList)
+	if err != nil {
+		panic(err)
+	}
+	*/
+
+	/*
+	data, err := json.Marshal(interface_data)
 	if err != nil {
 		panic(err)
 	}
@@ -137,238 +168,150 @@ func save_list() {
 	if err != nil {
 		panic(err)
 	}
+	*/
+
 }
 
 func load_list() {
-	data, err := ioutil.ReadFile(configFile)
-	databot, err1 := ioutil.ReadFile(configFileBot)
+//	data, err := ioutil.ReadFile(configFile)
+//	databot, err1 := ioutil.ReadFile(configFileBot)
 
-	if err != nil {
-		log.Printf("No such file - starting without config")
-		return
-	}
-
-	if err1 != nil {
-		log.Printf("No such file - starting without config bot")
-		return
-	}
-
-	if err = json.Unmarshal(data, &SiteList); err != nil {
-		log.Printf("Cant read file - starting without config")
-		return
-	}
-
-	if err = json.Unmarshal(databot, &botToken); err != nil {
-		log.Printf("Cant read file - starting without configbot")
-		return
-	}
+///	data_new, err2 := ioutil.ReadFile(configFile_new)
+///	if err2 != nil {
+///		log.Printf("No such file - starting without config_new")
+///		return
+///	}
+	// чтение из файла списка коинов по юзерам
+///	if err := json.Unmarshal(data_new, &interface_data); err != nil {
+///		log.Printf("Cant read file - starting without config_new")
+///	}
 
 //	fmt.Println(databot)
-
-<<<<<<< HEAD
-	fmt.Printf("тип: %T\n", botToken["TelegramBotToken"])
-	fmt.Printf("тип: %T\n", int64(botToken["chatID"].(float64)))
-=======
 //	fmt.Printf("тип: %T\n", botToken["TelegramBotToken"])
 //	fmt.Printf("тип: %T\n", int64(botToken["chatID"].(float64)))
->>>>>>> new_features
-
-	log.Printf(string(data))
+//	log.Printf(string(data_new))
 }
 
-<<<<<<< HEAD
-func monitor(bot *tgbotapi.BotAPI) {
-
-=======
 var summ float64
 
 func monitor(bot *tgbotapi.BotAPI) {
 
-//	var summ float64
-	/*
-	// параметр для http клиента чтобы принимал все ssl сертификаты
->>>>>>> new_features
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-
-<<<<<<< HEAD
-=======
-	// важно указать таймаут http соединения, иначе он вечно будет висеть и мы не увидим
-	// проблемы если сервер просто упал
-
->>>>>>> new_features
-	var httpclient = &http.Client{
-		Timeout: time.Second * 10,
-		Transport: tr,
-	}
-<<<<<<< HEAD
-
+	// в вечном цикле обходим список урлов раз в 5 мин и сохраняем статус в глобальный map CoinList
 	for {
-		save_list()
-		for site, _ := range SiteList {
-			response, err := httpclient.Get(site)
-=======
-*/
-	// в вечном цикле обходим список урлов раз в 5 мин и сохраняем статус в глобальный map SiteList
-	for {
-		// сохраняем текущий статус SiteList в файл configFile
-		save_list()
-		var summ float64
+		// сохраняем текущий статус CoinList в файл configFile
+		var summ float64 = 0
 		alarm = ""
-		for site, _ := range SiteList {
-/*			response, err := httpclient.Get(site)
->>>>>>> new_features
-			if err != nil {
-				SiteList[site] = 1
-				log.Printf("Status of %s: %s", site, "1 - Connection refused")
-			} else {
-				log.Printf("Status of %s: %s", site, response.Status)
-				SiteList[site] = response.StatusCode
-			}
-<<<<<<< HEAD
-		}
-		send_notifications(bot)
-		time.Sleep(time.Minute * 5)
-	}
-}
 
-func main() {
-=======
-*/			// Get info about coin
-			coinInfo, err := coinApi.GetCoinData(site)
+		// ******************** Реализация со старым однопользовательским конфигом
+		/*
+		for coin, _ := range CoinList {
+			// Get info about coin
+			coinInfo, err := coinApi.GetCoinData(coin)
 			if err != nil {
 				log.Println(err)
 			} else {
-				fmt.Printf(" %s: ($%.0f) %5.0f\n", site, coinInfo.PriceUsd, coinInfo.PriceRub * SiteList[site])
-				alarm = fmt.Sprintf(" %s: ($%.0f) %5.0f\n", site, coinInfo.PriceUsd, coinInfo.PriceRub * SiteList[site]) + alarm
+				fmt.Printf(" %s: ($%.0f) %5.2f\n", coin, coinInfo.PriceUsd, float64(coinInfo.PriceRub) * float64(CoinList[coin]))
+				alarm = fmt.Sprintf(" %s: ($%.0f) %5.2f\n", coin, coinInfo.PriceUsd, coinInfo.PriceRub * CoinList[coin]) + alarm
 //				bot.Send(tgbotapi.NewMessage(chatID, alarm))
 			}
-			summ = (coinInfo.PriceRub * SiteList[site]) + summ
+			summ = (coinInfo.PriceRub * CoinList[coin]) + summ
 		}
 		fmt.Printf("Total: %5.0f руб.\n", summ)
 		alarm = fmt.Sprintf("Total: %5.0f\n", summ) + alarm
 		bot.Send(tgbotapi.NewMessage(chatID, alarm))
+*/
+		// **************************************************************************
 
 		/*
-		// Get info about coin
-		coinInfo, err := coinApi.GetCoinData("bitcoin")
-		if err != nil {
-			log.Println(err)
-		} else {
-			fmt.Printf(" BTC: %5.0f\n", coinInfo.PriceRub * 0.05086186)
+		// **************************************************************************
+		var price_coin float64
+		for user_name := range interface_data { // перебираем все секции с именами пользователей
+			coins := interface_data[user_name].(interface{})
+			summ = 0
+			m := coins.(map[string]interface{})
+			f := m["coins"] // берём из конфига секцию "coins" где хранятится количество валюты текущего пользователя
+			for coin_name := range f.(map[string]interface{}) { // перебираем коины пользователя
+				// Get info about coin
+				coinInfo, err := coinApi.GetCoinData(coin_name)
+				if err != nil {
+					log.Println(err)
+				} else {
+					price_coin = f.(map[string]interface{})[coin_name].(float64)
+					fmt.Printf(" %s: ($%.0f) %0.2f\n", coin_name, coinInfo.PriceUsd, float64(coinInfo.PriceRub) * price_coin)
+					alarm = fmt.Sprintf(" %s: ($%.0f) %0.2f\n", coin_name, coinInfo.PriceUsd, price_coin * float64(coinInfo.PriceRub)) + alarm
+					summ = (float64(coinInfo.PriceRub) * price_coin) + summ
+				}
+			}
+			fmt.Printf("%s total: %5.0f руб.\n", user_name, summ)
+			alarm = fmt.Sprintf("%s total: %5.0f\n", user_name, summ) + alarm
+			bot.Send(tgbotapi.NewMessage(chatID, alarm))
 		}
 
-		var summ = coinInfo.PriceRub * 0.05086186
 
-		// Get info about coin
-		coinInfo, err = coinApi.GetCoinData("monero")
-		if err != nil {
-			log.Println(err)
-		} else {
-			fmt.Printf(" XMR: %5.0f\n", coinInfo.PriceRub * 0.243)
-		}
-
-		summ = (coinInfo.PriceRub * 0.243) + summ
-		// Get info about coin
-		coinInfo, err = coinApi.GetCoinData("ethereum")
-		if err != nil {
-			log.Println(err)
-		} else {
-			fmt.Printf(" ETH: %5.0f\n", coinInfo.PriceRub * 0.1)
-		}
-		summ = (coinInfo.PriceRub * 0.1) + summ
-
-		// Get info about coin
-		coinInfo, err = coinApi.GetCoinData("dash")
-		if err != nil {
-			log.Println(err)
-		} else {
-			fmt.Printf("DASH: %5.0f\n", coinInfo.PriceRub * 0.12556303)
-		}
-		summ = (coinInfo.PriceRub * 0.12556303) + summ
-		fmt.Printf("Total: %5.0f руб.\n", summ)
-*/
 		// шлем нотификации
 //		send_notifications(bot)
+		fmt.Printf("timer %d\n", time.Duration(timer))
 		time.Sleep(time.Minute * time.Duration(timer))
 //		time.Sleep(time.Second * 180)
+	}
+		// **************************************************************************
+*/
+
+		save_list()
+		value1, _ := jsonParsed.S("coins").ChildrenMap()
+		//	fmt.Printf("value: %s\n", value1)
+		for user_name := range value1 {
+			fmt.Printf("value: %s\n", user_name)
+			children1, _ := jsonParsed.S("coins").S(user_name).ChildrenMap()
+			summ = 0
+			alarm = ""
+			for coin_name, coin_volume := range children1 {
+				// Get info about coin
+				coinInfo, err := coinApi.GetCoinData(coin_name)
+				if err != nil {
+					log.Println(err)
+				} else {
+					if coin_volume.Data().(float64) != 0 { // если объём равен нулю, значит валюта было добавлена, а потом удалена. Её не считаем
+						fmt.Printf(" %s: ($%.0f) %0.2f\n", coin_name, coinInfo.PriceUsd, float64(coinInfo.PriceRub) * coin_volume.Data().(float64))
+						alarm = fmt.Sprintf(" %s: ($%.2f) %0.2f\n", coin_name, coinInfo.PriceUsd, coin_volume.Data().(float64) * float64(coinInfo.PriceRub)) + alarm
+						summ = (float64(coinInfo.PriceRub) * coin_volume.Data().(float64)) + summ
+					}
+				}
+//				fmt.Printf("валюта: %s, объём: %f, сумма: %.2f\n", coin_name, coin_volume.Data().(float64), coin_volume.Data().(float64) * coinInfo.PriceRub)
+			}
+			fmt.Printf("%s total: %5.0f руб.\n", user_name, summ)
+			alarm = fmt.Sprintf("%s total: %5.0f\n", user_name, summ) + alarm
+			bot.Send(tgbotapi.NewMessage(chatID, alarm))
+		}
+		time.Sleep(time.Minute * time.Duration(timer))
 	}
 }
 
 
 func main() {
-/*
-	// Get global market data
-	marketInfo, err := coinApi.GetMarketData()
-	if err != nil {
-		log.Println(err)
-	} else {
-		fmt.Println(marketInfo)
-	}
-*/
-/*
-	// Get info about coin
-	coinInfo, err := coinApi.GetCoinData("monero")
-	if err != nil {
-		log.Println(err)
-	} else {
-		fmt.Println(coinInfo.PriceRub)
-	}
 
-	// Get info about coin
-	coinInfo, err = coinApi.GetCoinData("ethereum")
-	if err != nil {
-		log.Println(err)
-	} else {
-		fmt.Println(coinInfo.PriceRub)
-	}
-
-	// Get info about coin
-	coinInfo, err = coinApi.GetCoinData("dash")
-	if err != nil {
-		log.Println(err)
-	} else {
-		fmt.Println(coinInfo.PriceRub)
-	}
-*/
-
->>>>>>> new_features
 	bot, err := tgbotapi.NewBotAPI(telegramBotToken)
 	if err != nil {
 		log.Panic(err)
 	}
-<<<<<<< HEAD
 
-=======
-/*
->>>>>>> new_features
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 	log.Printf("Config file: %s", configFile)
 	log.Printf("Config file: %s", configFileBot)
 	log.Printf("ChatID: %v", chatID)
 	log.Printf("Starting monitoring thread")
-<<<<<<< HEAD
-	go monitor(bot)
 
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-
-	bot.Send(tgbotapi.NewMessage(chatID, fmt.Sprint("Я живой; вот сайты которые буду мониторить: ", SiteList)))
-=======
-*/
 	go monitor(bot)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 1
 
-	bot.Send(tgbotapi.NewMessage(chatID, fmt.Sprint("буду мониторить: ", SiteList)))
->>>>>>> new_features
+	bot.Send(tgbotapi.NewMessage(chatID, fmt.Sprint("буду мониторить: ", CoinList)))
 
 	updates, err := bot.GetUpdatesChan(u)
 
 	for update := range updates {
-		reply := "Не знаю что сказать"
+		reply := "Не понимаю о чём вы. См. /help"
 		if update.Message == nil {
 			continue
 		}
@@ -376,44 +319,61 @@ func main() {
 		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
 		switch update.Message.Command() {
-<<<<<<< HEAD
-		case "site_list":
-			sl, _ := json.Marshal(SiteList)
-			reply = string(sl)
-
-		case "site_add":
-			SiteList[update.Message.CommandArguments()] = 0
-			reply = "Site added to monitoring list"
-
-		case "site_del":
-=======
 		case "coin_list":
-			sl, _ := json.Marshal(SiteList)
-			reply = string(sl)
+			reply = "Ваша валюта:\n"
+			coins, _ := jsonParsed.S("coins").S(update.Message.From.UserName).ChildrenMap()
+			for coin, volume := range coins {
+				if volume.Data().(float64) != 0 {
+					fmt.Printf("%s: %f\n", coin, volume.Data().(float64))
+					reply = reply + fmt.Sprintf("%s: %f\n", coin, volume.Data().(float64))
+				}
+			}
 
 		case "coin_add":
-			str := strings.Split(update.Message.CommandArguments(), " ")
+			reply = ""
+				str := strings.Split(update.Message.CommandArguments(), " ")
 //			var str1 string
-			if str[1] != "" {
-				reply = str[1]
-				f, _ := strconv.ParseFloat(str[1], 64)
-				SiteList[str[0]] = f
-//				str[0] = f
-				log.Printf("%f\n", f)
+
+			// Get info about coin
+			coinInfo, err := coinApi.GetCoinData(str[0])
+			log.Printf("coinInfo %s\n", coinInfo)
+			if err != nil {
+				log.Println(err)
+				reply = "Нет такой валюты"
 			} else {
-				reply = "фиг вам"
+				if len(str) > 1 {
+					reply = str[1]
+					fl, _ := strconv.ParseFloat(str[1], 64)
+					jsonParsed.Set(fl, "coins", update.Message.From.UserName, str[0])
+					fmt.Println(jsonParsed.String())
+					log.Printf("объёмом %f, пользователю %s, добавлена валюта %s\n", fl, update.Message.From.UserName, str[0])
+					reply = fmt.Sprintf("объёмом %f, пользователю %s, добавлена валюта %s\n", fl, update.Message.From.UserName, str[0])
+				} else {
+					reply = "мало аргументов"
+				}
 			}
 //			reply = "Site added to monitoring list"
 		case "coin_timer":
 			str := strings.Split(update.Message.CommandArguments(), " ")
 			//timer, _ = strconv.ParseFloat(str[0], 64)
 			timer, _ = strconv.Atoi(str[0])
-			reply = "timer chenged"
+			reply = fmt.Sprintf("timer chenged to %d", timer)
 
 		case "coin_del":
->>>>>>> new_features
-			delete(SiteList, update.Message.CommandArguments())
+			if jsonParsed.Exists("coins", update.Message.From.UserName, update.Message.CommandArguments()) {
+				jsonParsed.Set(0.0, "coins", update.Message.From.UserName, update.Message.CommandArguments())
+				reply = "коин "+update.Message.CommandArguments()+" удалён"
+			} else {
+				reply = "ошибка удаления"
+			}
+
+/*
+			coins := interface_data[update.Message.From.UserName].(interface{})
+			m := coins.(map[string]interface{})
+			f := m["coins"] // берём из конфига секцию "coins" где хранятится количество валюты текущего пользователя
+			delete(f.(map[string]interface{}), update.Message.CommandArguments())
 			reply = "Site deleted from monitoring list"
+*/
 		case "help":
 			reply = HelpMsg
 		}
