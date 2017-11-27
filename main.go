@@ -53,7 +53,7 @@ var (
 		"/coin_list - покажет список валюты в мониторинге и их курс \n" +
 		"/coin_add [coin_name] [volume] - добавит коин в список мониторинга\n" +
 		"/coin_del [coin_name] - удалит коин из списка мониторинга\n" +
-		"/coin_timer [time] - таймер мониторинга\n" +
+		"/timer [time] - таймер мониторинга\n" +
 		"/help - отобразить это сообщение\n" +
 		"\n"
 )
@@ -306,7 +306,7 @@ func main() {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 1
 
-	bot.Send(tgbotapi.NewMessage(chatID, fmt.Sprint("буду мониторить: ", CoinList)))
+//	bot.Send(tgbotapi.NewMessage(chatID, fmt.Sprint("буду мониторить: ", CoinList)))
 
 	updates, err := bot.GetUpdatesChan(u)
 
@@ -357,7 +357,22 @@ func main() {
 			str := strings.Split(update.Message.CommandArguments(), " ")
 			//timer, _ = strconv.ParseFloat(str[0], 64)
 			timer, _ = strconv.Atoi(str[0])
-			reply = fmt.Sprintf("timer chenged to %d", timer)
+			if timer < 1 {
+				timer = 10
+				reply = fmt.Sprintf("таймер не может быть меньше единицы\n таймер установлена на 10 минут")
+			} else {
+				reply = fmt.Sprintf("таймер изменён на %d минут", timer)
+			}
+		case "timer":
+			str := strings.Split(update.Message.CommandArguments(), " ")
+			//timer, _ = strconv.ParseFloat(str[0], 64)
+			timer, _ = strconv.Atoi(str[0])
+			if timer < 1 {
+				timer = 10
+				reply = fmt.Sprintf("таймер не может быть меньше единицы\n таймер установлена на 10 минут")
+			} else {
+				reply = fmt.Sprintf("таймер изменён на %d минут", timer)
+			}
 
 		case "coin_del":
 			if jsonParsed.Exists("coins", update.Message.From.UserName, update.Message.CommandArguments()) {
